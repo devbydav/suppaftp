@@ -465,12 +465,12 @@ impl FtpStream {
     ///
     /// This stores a file on the server.
     /// r argument must be any struct which implemenents the Read trait
-    pub fn put_file<R: Read>(&mut self, filename: &str, r: &mut R) -> Result<()> {
+    pub fn put_file<R: Read>(&mut self, filename: &str, r: &mut R) -> Result<u64> {
         // Get stream
         let mut data_stream = self.put_with_stream(filename)?;
         copy(r, &mut data_stream)
             .map_err(FtpError::ConnectionError)
-            .and_then(|_| self.finalize_put_stream(Box::new(data_stream)))
+            .and_then(|size| self.finalize_put_stream(Box::new(data_stream)).map(|_| size))
     }
 
     /// ### put_with_stream
