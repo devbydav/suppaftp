@@ -470,7 +470,7 @@ impl FtpStream {
         let mut data_stream = self.put_with_stream(filename)?;
         copy(r, &mut data_stream)
             .map_err(FtpError::ConnectionError)
-            .and_then(|size| self.finalize_put_stream(Box::new(data_stream)).map(|_| size))
+            .and_then(|size| self.finalize_put_stream(data_stream).map(|_| size))
     }
 
     /// ### put_with_stream
@@ -491,9 +491,18 @@ impl FtpStream {
     /// Finalize put when using stream
     /// This method must be called once the file has been written and
     /// `put_with_stream` has been used to write the file
-    pub fn finalize_put_stream(&mut self, stream: Box<dyn Write>) -> Result<()> {
+    pub fn finalize_put_stream(&mut self, mut stream: BufWriter<DataStream>) -> Result<()> {
+
+        #[cfg(feature = "secure")]
+        if let DataStream::Ssl(ssl_stream) = stream.get_mut() {
+            ssl_stream
+                .shutdown()
+                .map_err(FtpError::ConnectionError)?;
+        }
+
         // Drop stream NOTE: must be done first, otherwise server won't return any response
         drop(stream);
+
         // Read response
         match self.read_response_in(&[
             status::CLOSING_DATA_CONNECTION,
