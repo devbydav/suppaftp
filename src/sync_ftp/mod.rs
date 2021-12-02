@@ -379,7 +379,7 @@ impl FtpStream {
         match self.retr_as_stream(file_name) {
             Ok(mut stream) => {
                 let result = reader(&mut stream)?;
-                self.finalize_retr_stream(Box::new(stream)).map(|_| result)
+                self.finalize_retr_stream(stream).map(|_| result)
             }
             Err(err) => Err(err),
         }
@@ -430,9 +430,18 @@ impl FtpStream {
     /// ### finalize_retr_stream
     ///
     /// Finalize retr stream; must be called once the requested file, got previously with `retr_as_stream()` has been read
-    pub fn finalize_retr_stream(&mut self, reader: Box<dyn Read>) -> Result<()> {
+    pub fn finalize_retr_stream(&mut self, mut stream: BufReader<DataStream>) -> Result<()> {
+
+        #[cfg(feature = "secure")]
+        if let DataStream::Ssl(ssl_stream) = stream.get_mut() {
+            ssl_stream
+                .shutdown()
+                .map_err(FtpError::ConnectionError)?;
+        }
+
         // Drop stream NOTE: must be done first, otherwise server won't return any response
-        drop(reader);
+        drop(stream);
+
         // Then read response
         match self.read_response_in(&[
             status::CLOSING_DATA_CONNECTION,
