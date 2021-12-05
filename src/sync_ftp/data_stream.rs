@@ -2,6 +2,8 @@
 //!
 //! This module exposes the data stream where bytes must be written to/read from
 
+use super::FtpError;
+
 #[cfg(feature = "secure")]
 use native_tls::TlsStream;
 use std::io::{Read, Result, Write};
@@ -34,6 +36,16 @@ impl DataStream {
     /// Test if the stream is secured
     pub fn is_ssl(&self) -> bool {
         matches!(self, DataStream::Ssl(_))
+    }
+
+    /// ### shutdown
+    ///
+    /// Shut down tls session
+    pub fn shutdown(&mut self) -> crate::types::Result<()> {
+        if let DataStream::Ssl(ssl_stream) = self {
+            ssl_stream.shutdown().map_err(FtpError::ConnectionError)?;
+        }
+        Ok(())
     }
 }
 

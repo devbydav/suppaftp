@@ -457,7 +457,7 @@ impl FtpStream {
         match self.retr_as_stream(file_name) {
             Ok(mut stream) => {
                 let result = reader(&mut stream)?;
-                self.finalize_retr_stream(Box::new(stream)).map(|_| result)
+                self.finalize_retr_stream(stream).map(|_| result)
             }
             Err(err) => Err(err),
         }
@@ -509,10 +509,14 @@ impl FtpStream {
     /// ### finalize_retr_stream
     ///
     /// Finalize retr stream; must be called once the requested file, got previously with `retr_as_stream()` has been read
-    pub fn finalize_retr_stream(&mut self, reader: Box<dyn Read>) -> Result<()> {
+    pub fn finalize_retr_stream(&mut self, mut stream: BufReader<DataStream>) -> Result<()> {
         debug!("Finalizing retr stream");
+
+        #[cfg(feature = "secure")]
+        stream.get_mut().shutdown();
+
         // Drop stream NOTE: must be done first, otherwise server won't return any response
-        drop(reader);
+        drop(stream);
         trace!("dropped stream");
         // Then read response
         self.read_response_in(&[
@@ -551,7 +555,7 @@ impl FtpStream {
         // Get stream
         let mut data_stream = self.put_with_stream(filename)?;
         let bytes = copy(r, &mut data_stream).map_err(FtpError::ConnectionError)?;
-        self.finalize_put_stream(Box::new(data_stream))?;
+        self.finalize_put_stream(data_stream)?;
         Ok(bytes)
     }
 
@@ -574,8 +578,12 @@ impl FtpStream {
     /// Finalize put when using stream
     /// This method must be called once the file has been written and
     /// `put_with_stream` has been used to write the file
-    pub fn finalize_put_stream(&mut self, stream: Box<dyn Write>) -> Result<()> {
+    pub fn finalize_put_stream(&mut self, mut stream: BufWriter<DataStream>) -> Result<()> {
         debug!("Finalizing put stream");
+
+        #[cfg(feature = "secure")]
+        stream.get_mut().shutdown();
+
         // Drop stream NOTE: must be done first, otherwise server won't return any response
         drop(stream);
         trace!("Stream dropped");
