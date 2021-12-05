@@ -686,25 +686,33 @@ impl FtpStream {
     /// ### get_lines_from_stream
     ///
     /// Retrieve stream "message"
-    fn get_lines_from_stream(data_stream: BufReader<DataStream>) -> Result<Vec<String>> {
+    fn get_lines_from_stream(mut data_stream: BufReader<DataStream>) -> Result<Vec<String>> {
         let mut lines: Vec<String> = Vec::new();
 
-        let mut lines_stream = data_stream.lines();
         loop {
-            let line = lines_stream.next();
-            match line {
-                Some(line) => match line {
-                    Ok(l) => {
-                        if l.is_empty() {
-                            continue;
+            let mut line = String::new();
+            match data_stream.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    if line.ends_with('\n') {
+                        line.pop();
+                        if line.ends_with('\r') {
+                            line.pop();
                         }
-                        lines.push(l);
                     }
-                    Err(_) => return Err(FtpError::BadResponse),
-                },
-                None => break Ok(lines),
+                    if line.is_empty() {
+                        continue;
+                    }
+                    lines.push(line);
+                }
+                Err(_) => return Err(FtpError::BadResponse),
             }
         }
+
+        #[cfg(feature = "secure")]
+        data_stream.get_mut().shutdown();
+
+        Ok(lines)
     }
 
     /// ### writr_str
