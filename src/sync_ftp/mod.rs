@@ -609,14 +609,7 @@ impl FtpStream {
             format!("LIST {}\r\n", path).into()
         });
 
-        self.stream_lines(
-            command,
-            status::ABOUT_TO_SEND,
-            &[
-                status::CLOSING_DATA_CONNECTION,
-                status::REQUESTED_FILE_ACTION_OK,
-            ],
-        )
+        self.stream_lines(command, status::ABOUT_TO_SEND)
     }
 
     /// ### nlst
@@ -633,14 +626,7 @@ impl FtpStream {
             format!("NLST {}\r\n", path).into()
         });
 
-        self.stream_lines(
-            command,
-            status::ABOUT_TO_SEND,
-            &[
-                status::CLOSING_DATA_CONNECTION,
-                status::REQUESTED_FILE_ACTION_OK,
-            ],
-        )
+        self.stream_lines(command, status::ABOUT_TO_SEND)
     }
 
     /// ### mdtm
@@ -686,7 +672,7 @@ impl FtpStream {
     /// ### get_lines_from_stream
     ///
     /// Retrieve stream "message"
-    fn get_lines_from_stream(mut data_stream: BufReader<DataStream>) -> Result<Vec<String>> {
+    fn get_lines_from_stream(data_stream: &mut BufReader<DataStream>) -> Result<Vec<String>> {
         let mut lines: Vec<String> = Vec::new();
 
         loop {
@@ -708,9 +694,6 @@ impl FtpStream {
                 Err(_) => return Err(FtpError::BadResponse),
             }
         }
-
-        #[cfg(feature = "secure")]
-        data_stream.get_mut().shutdown();
 
         Ok(lines)
     }
@@ -776,16 +759,11 @@ impl FtpStream {
     /// ### stream_lines
     ///
     /// Execute a command which returns list of strings in a separate stream
-    fn stream_lines(
-        &mut self,
-        cmd: Cow<'static, str>,
-        open_code: u32,
-        close_code: &[u32],
-    ) -> Result<Vec<String>> {
-        let data_stream = BufReader::new(self.data_command(&cmd)?);
+    fn stream_lines(&mut self, cmd: Cow<'static, str>, open_code: u32) -> Result<Vec<String>> {
+        let mut data_stream = BufReader::new(self.data_command(&cmd)?);
         self.read_response_in(&[open_code, status::ALREADY_OPEN])?;
-        let lines = Self::get_lines_from_stream(data_stream);
-        self.read_response_in(close_code)?;
+        let lines = Self::get_lines_from_stream(&mut data_stream);
+        self.finalize_retr_stream(data_stream)?;
         lines
     }
 }
