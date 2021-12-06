@@ -45,7 +45,7 @@ use thiserror::Error;
 
 lazy_static! {
     /// POSIX system regex to parse list output
-    static ref POSIX_LS_RE: Regex = Regex::new(r#"^([\-ld])([\-rwxs]{9})\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w{3}\s+\d{1,2}\s+(?:\d{1,2}:\d{1,2}|\d{4}))\s+(.+)$"#).unwrap();
+    static ref POSIX_LS_RE: Regex = Regex::new(r#"^([\-ld])([\-rwxs]{9})\s+(\d+)\s+(.+)\s+(.+)\s+(\d+)\s+(.+\s+\d{1,2}\s+(?:\d{1,2}:\d{1,2}|\d{4}))\s+(.+)$"#).unwrap();
     /// DOS system regex to parse list output
     static ref DOS_LS_RE: Regex = Regex::new(r#"^(\d{2}\-\d{2}\-\d{2}\s+\d{2}:\d{2}\s*[AP]M)\s+(<DIR>)?([\d,]*)\s+(.+)$"#).unwrap();
 }
@@ -233,9 +233,11 @@ impl File {
         match POSIX_LS_RE.captures(line) {
             // String matches regex
             Some(metadata) => {
+                trace!("Parsed POXIS line {}", line);
                 // NOTE: metadata fmt: (regex, file_type, permissions, link_count, uid, gid, filesize, mtime, filename)
                 // Expected 7 + 1 (8) values: + 1 cause regex is repeated at 0
                 if metadata.len() < 8 {
+                    trace!("Bad syntax for posix line");
                     return Err(ParseError::SyntaxError);
                 }
                 // Collect metadata
@@ -274,14 +276,14 @@ impl File {
 
                 // Parse mtime and convert to SystemTime
                 let modified: SystemTime = Self::parse_lstime(
-                    metadata.get(7).unwrap().as_str(),
+                    metadata.get(7).unwrap().as_str().trim(),
                     "%b %d %Y",
                     "%b %d %H:%M",
                 )?;
                 // Get gid
-                let gid: Option<u32> = metadata.get(5).unwrap().as_str().parse::<u32>().ok();
+                let gid: Option<u32> = metadata.get(5).unwrap().as_str().trim().parse::<u32>().ok();
                 // Get uid
-                let uid: Option<u32> = metadata.get(4).unwrap().as_str().parse::<u32>().ok();
+                let uid: Option<u32> = metadata.get(4).unwrap().as_str().trim().parse::<u32>().ok();
                 // Get filesize
                 let size: usize = metadata
                     .get(6)
@@ -299,6 +301,15 @@ impl File {
                     Some(p) => FileType::Symlink(p),
                     None => file_type,
                 };
+                trace!(
+                    "Found file with name {}, type: {:?}, size: {}, uid: {:?}, gid: {:?}, pex: {:?}",
+                    name,
+                    file_type,
+                    size,
+                    uid,
+                    gid,
+                    posix_pex
+                );
                 Ok(File {
                     name,
                     file_type,
@@ -326,6 +337,7 @@ impl File {
         match DOS_LS_RE.captures(line) {
             // String matches regex
             Some(metadata) => {
+                trace!("Parsed DOS line {}", line);
                 // NOTE: metadata fmt: (regex, date_time, is_dir?, file_size?, file_name)
                 // Expected 4 + 1 (5) values: + 1 cause regex is repeated at 0
                 if metadata.len() < 5 {
@@ -352,6 +364,12 @@ impl File {
                 };
                 // Get file name
                 let name: String = String::from(metadata.get(4).unwrap().as_str());
+                trace!(
+                    "Found file with name {}, type: {:?}, size: {}",
+                    name,
+                    file_type,
+                    size,
+                );
                 // Return entry
                 Ok(File {
                     name,
@@ -631,6 +649,14 @@ mod test {
                 .unwrap(),
             ParseError::InvalidDate
         );
+    }
+
+    #[test]
+    fn should_parse_utf8_names_in_ls_output() {
+        assert!(File::try_from(
+            "-rw-rw-r-- 1 омар  www-data  8192 Nov 5 2018 фообар.txt".to_string()
+        )
+        .is_ok());
     }
 
     #[test]

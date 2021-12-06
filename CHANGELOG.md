@@ -1,12 +1,32 @@
 # Changelog
 
 - [Changelog](#changelog)
+  - [4.2.0](#420)
+  - [4.1.3](#413)
   - [4.1.2](#412)
   - [4.1.1](#411)
   - [4.1.0](#410)
   - [4.0.2](#402)
   - [4.0.1](#401)
   - [4.0.0](#400)
+
+## 4.2.0
+
+Released on ??
+
+- **Active mode**
+  - suppaftp now supports Active-mode (credit [@devbydav](https://github.com/devbydav))
+  - You can change mode with `set_mode(Mode::Passive) or set_mode(Mode::Active)` whenever you want
+- **Logging**: `log` crate has been implemented for debugging. You can disable logging with `no-log` feature
+
+## 4.1.3
+
+Released on 01/12/2021
+
+- UNIX file parser:
+  - Fixed file parsing, which didn't allow any other characters than alphanumerics for groups, users and dates
+- `put_file()` will now return the amount of bytes written
+- Updated dependencies
 
 ## 4.1.2
 

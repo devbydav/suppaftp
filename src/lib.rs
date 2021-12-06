@@ -21,21 +21,21 @@
 //! First of you need to add **suppaftp** to your project dependencies:
 //!
 //! ```toml
-//! suppaftp = "4.1.2"
+//! suppaftp = "^4.2.0"
 //! ```
 //!
 //! If you want to enable TLS support to work with **FTPS** you need to enable the **secure** feature in your dependencies:
 //!
 //! ```toml
-//! suppaftp = { version = "4.1.2", features = ["secure"] }
+//! suppaftp = { version = "^4.2.0", features = ["secure"] }
 //! ```
 //!
 //! While if you want to go async, then you must enable the **async** feature or if you want to mix secure and async then there is the super feature **async-secure**!
 //!
 //! ```toml
-//! suppaftp = { version = "4.1.2", features = ["async"] }
+//! suppaftp = { version = "^4.2.0", features = ["async"] }
 //! # or
-//! suppaftp = { version = "4.1.2", features = ["async-secure"] }
+//! suppaftp = { version = "^4.2.0", features = ["async-secure"] }
 //! ```
 //!
 //! Keep in mind that you **can't** use the **sync** and the **async** version of this library at the same time!
@@ -116,26 +116,10 @@
 )]
 
 // -- common deps
-extern crate chrono;
 #[macro_use]
 extern crate lazy_static;
-extern crate regex;
-extern crate thiserror;
-// -- secure deps
-#[cfg(feature = "secure")]
-pub extern crate native_tls;
-// -- async deps
-#[cfg(feature = "async-secure")]
-pub extern crate async_native_tls;
-#[cfg(any(feature = "async", feature = "async-secure"))]
-extern crate async_std;
-#[cfg(any(feature = "async", feature = "async-secure"))]
-extern crate pin_project;
-// -- test deps
-#[cfg(test)]
-extern crate pretty_assertions;
-#[cfg(test)]
-extern crate rand;
+#[macro_use]
+extern crate log;
 
 // -- private
 #[cfg(any(feature = "async", feature = "async-secure"))]
@@ -148,6 +132,13 @@ pub mod list;
 pub mod status;
 pub mod types;
 
+// -- secure deps
+#[cfg(feature = "secure")]
+pub extern crate native_tls;
+// -- async deps
+#[cfg(feature = "async-secure")]
+pub extern crate async_native_tls;
+
 // -- export async
 #[cfg(any(feature = "async", feature = "async-secure"))]
 pub use async_ftp::FtpStream;
@@ -155,4 +146,10 @@ pub use async_ftp::FtpStream;
 #[cfg(not(any(feature = "async", feature = "async-secure")))]
 pub use sync_ftp::FtpStream;
 // -- export (common)
-pub use types::FtpError;
+pub use types::{FtpError, Mode};
+
+// -- test logging
+#[cfg(test)]
+pub fn log_init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
